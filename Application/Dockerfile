@@ -9,8 +9,8 @@ FROM mcr.microsoft.com/dotnet/sdk:7.0 AS build
 WORKDIR /src
 #COPY ["Application/Application.csproj", "Application/"]
 #RUN dotnet restore "Application/Application.csproj"
-RUN dotnet restore
 COPY . .
+RUN dotnet restore
 WORKDIR "/src/Application"
 RUN dotnet build "Application.csproj" -c Release -o /app/build
 
