@@ -1,59 +1,49 @@
-# ASP.NET
-# Build and test ASP.NET projects.
-# Add steps that publish symbols, save build artifacts, deploy, and more:
-# https://docs.microsoft.com/azure/devops/pipelines/apps/aspnet/build-aspnet-4
+# Docker
+# Build and push an image to Azure Container Registry
+# https://docs.microsoft.com/azure/devops/pipelines/languages/docker
 
 trigger:
 - master
 
-pool:
-  vmImage: 'ubuntu-latest'
+resources:
+- repo: self
 
 variables:
-  buildConfiguration: 'Release'
+  # Container registry service connection established during pipeline creation
+  dockerRegistryServiceConnection: '67ee735b-4e77-4d85-98d3-18483ec252fb'
+  imageRepository: 'horizontoursite'
+  containerRegistry: 'horizontour.azurecr.io'
+  dockerfilePath: '$(Build.SourcesDirectory)/Application/Dockerfile'
+  tag: '$(Build.BuildId)'
 
-steps:
-  - task: UseDotNet@2
-    displayName: 'Install .NET Core SDK'
-    continueOnError: false
-    inputs:
-      version: '7.x'
+  # Agent VM image name
+  vmImageName: 'ubuntu-latest'
 
-  - task: DotNetCoreCLI@2
-    displayName: 'Restore'
-    continueOnError: false
-    inputs:
-      command: restore
+stages:
+- stage: Build
+  displayName: Build and push stage
+  jobs:
+  - job: Build
+    displayName: Build
+    pool:
+      vmImage: $(vmImageName)
+    steps:
+    - task: Docker@2
+      displayName: Build and push an image to container registry
+      inputs:
+        command: buildAndPush
+        repository: $(imageRepository)
+        dockerfile: $(dockerfilePath)
+        containerRegistry: $(dockerRegistryServiceConnection)
+        tags: |
+          $(tag)
 
-  - task: DotNetCoreCLI@2
-    displayName: '.NET build $(buildConfiguration)'
-    continueOnError: false
-    inputs:
-      command: 'build'
-      projects: 'Application/Application.csproj'
-      arguments: '--configuration $(buildConfiguration)'
-      
-  - task: DotNetCoreCLI@2
-    displayName: 'Publish Artifacts'
-    continueOnError: false
-    inputs:
-      command: publish
-      projects: 'Application/Application.csproj'
-      publishWebProjects: True
-      arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
-      zipAfterPublish: True
-
-  - task: PublishPipelineArtifact@1
-    inputs:
-      targetPath: '$(Build.ArtifactStagingDirectory)'
-      artifactName: 'HorizonSite'
-
-  # - task: AzureRmWebAppDeployment@4
-  #   continueOnError: false
-  #   displayName: 'Deploy to Azure'
-  #   inputs:
-  #     ConnectionType: 'AzureRM'
-  #     azureSubscription: 'Pago pelo Uso (cbb3358e-dd46-4cb3-afef-3aa600faa39a)'
-  #     appType: 'webAppLinux'
-  #     WebAppName: 'horizon-tour-api'
-  #     packageForLinux: '$(Build.ArtifactStagingDirectory)/**/*.zip'
+    - task: AzureRmWebAppDeployment@4
+      inputs:
+        ConnectionType: 'AzureRM'
+        azureSubscription: 'Pago pelo Uso (cbb3358e-dd46-4cb3-afef-3aa600faa39a)'
+        appType: 'webAppContainer'
+        WebAppName: 'horizon-tour-site'
+        DockerNamespace: '$(dockerRegistryServiceConnection)'
+        DockerRepository: '$(imageRepository)'
+        DockerImageTag: '$(tag)'
